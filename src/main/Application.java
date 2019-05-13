@@ -12,6 +12,11 @@ import java.util.HashMap;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
+/*
+ *  Simple application which uses GSON to parse a JSON file into Records, and then compares records against each other
+ *  resolving duplicates as it goes, until only the most recent unique Record data is left. It then saves that
+ *  collection of records as "output.json".
+ */
 public class Application {
 	private static Gson gson = new GsonBuilder().setPrettyPrinting().create();
 	
@@ -31,12 +36,13 @@ public class Application {
 		}
 		return recordDAOs;
 	}
+
 	
+	// Go across all record data objects and resolve conflicts.
 	private void execute(String aFileName) {
 		String json = readFile(aFileName);
 		RecordDAO[] records = extractRecords(json);
 		
-		// Go across all record data objects and resolve conflicts.
 		RecordDAO[] paredRecords = resolveDuplicates(records);
 		RecordsDAO output = new RecordsDAO(paredRecords);
 		saveOutputToJson(output);
@@ -73,6 +79,7 @@ public class Application {
 	 If dates match simply replace existing data with new.
 	 */
 	public RecordDAO[] resolveDuplicates (RecordDAO[] aRecordDAOs) {
+		RecordDAO[] result = null;
 		HashMap<String, Record> recordsById = new HashMap<String, Record>();
 		// Email is key, id is value.
 		HashMap<String, String> recordEmailIds = new HashMap<String, String>();
@@ -141,21 +148,20 @@ public class Application {
 			}
 			
 			// Initialize recordDAOs for serialization.
-			RecordDAO[] result = new RecordDAO[recordsById.size()];
+			result = new RecordDAO[recordsById.size()];
 			int i = 0;
 			for (Record IcRecord : recordsById.values()) {
 				result[i] = IcRecord.toRecordDAO();
 				i++;
 			}
-			return result;
 		} catch (ParseException parseException) {
 			parseException.printStackTrace();
 			System.exit(1);
 		}
-		// This line should never be reached.
-		return new RecordDAO[0];
+		return result;
 	}
 	
+	//Save output records as "output.json".
 	private void saveOutputToJson(RecordsDAO aOutput) {
 		try {
 			String ouputPath = System.getProperty("user.dir");
