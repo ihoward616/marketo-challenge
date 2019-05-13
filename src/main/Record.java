@@ -1,54 +1,61 @@
 package main;
 
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class Record {
-	private String id;
+	
+	/*
+	 * Simple object representing a record parsed from JSON.
+	 * Contains logic for overwriting values and being re-serialized through a DAO object.
+	 */
+	
+	private String _id;
 	private String email;
 	private String firstName;
 	private String lastName;
 	private String address;
-	private Date entryDate;
+	private transient OffsetDateTime entryDate;
+	private static transient DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssxxx");
 	
-	public Record (String aId, String aEmail, String aFirstName, String aLastName, String aAddress, String aEntryDate) throws ParseException {
-		id = aId;
+	public Record (String aId, String aEmail, String aFirstName, String aLastName,
+					String aAddress, String aEntryDate) throws ParseException {
+		_id = aId;
 		email = aEmail;
 		firstName = aFirstName;
 		lastName = aLastName;
 		address = aAddress;
-		SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
-		entryDate = format.parse(aEntryDate);
+		entryDate = OffsetDateTime.parse(aEntryDate);
 	}
-	
+
+	//Create from DAO object parsed from JSON.
 	public Record (RecordDAO aDAO)  throws ParseException {
-		id = aDAO._id;
+		_id = aDAO._id;
 		email = aDAO.email;
 		firstName = aDAO.firstName;
 		lastName = aDAO.lastName;
 		address = aDAO.address;
-		SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
-		entryDate = format.parse(aDAO.entryDate);
+		entryDate = OffsetDateTime.parse(aDAO.entryDate, formatter);
 	}
-	
+
+	// Check for differences and overwrite current values with values from aRecord.
 	public void overwriteWithRecord (Record aRecord) {
-			// Check for differences and overwrite current values with values from aRecord.
 		String otherEmail = aRecord.getEmail();
 		String otherId = aRecord.getId();
 		String otherFirstName = aRecord.getFirstName();
 		String otherLastName = aRecord.getLastName();
 		String otherAddress = aRecord.getAddress();
-		Date otherDate = aRecord.getEntryDate();
+		OffsetDateTime otherDate = aRecord.getEntryDate();
 		
 		StringBuffer updateLog = new StringBuffer();
 		updateLog.append("Updating values of ");
-		updateLog.append(id + ":" + email);
+		updateLog.append(_id + ":" + email);
 		updateLog.append(" with values from ");
 		updateLog.append(otherId + ":" + otherEmail);
 		updateLog.append("\n");
 		
-			//Update values and log changes.
+		//Update values and log changes.
 		if (!firstName.equals(otherFirstName)) {
 			addChangeToLog(updateLog, "firstName", firstName, otherFirstName);
 			setFirstName(otherFirstName);
@@ -57,8 +64,8 @@ public class Record {
 			addChangeToLog(updateLog, "lastName", lastName, otherLastName);
 			setLastName(otherLastName);
 		}
-		if (!id.equals(otherId)) {
-			addChangeToLog(updateLog, "_id", id, otherId);
+		if (!_id.equals(otherId)) {
+			addChangeToLog(updateLog, "_id", _id, otherId);
 			setId(otherId);
 		}
 		if (!email.equals(otherEmail)) {
@@ -77,6 +84,7 @@ public class Record {
 		System.out.print(updateLog.toString());
 	}
 	
+	//Helper method for building a log of changes.
 	private void addChangeToLog (StringBuffer aStringBuffer, String aKey, String aOldValue, String aNewValue) {
 		aStringBuffer.append("Changing ");
 		aStringBuffer.append(aKey);
@@ -86,13 +94,20 @@ public class Record {
 		aStringBuffer.append(aNewValue);
 		aStringBuffer.append("\n");
 	}
+	
+	// Function to output GSON usable data object for persistence. 
+	public RecordDAO toRecordDAO() {
+		String dateString = formatter.format(entryDate);
+		RecordDAO result = new RecordDAO(_id, email, firstName, lastName, address, dateString);
+		return result;
+	}
 
 	public String getId() {
-		return id;
+		return _id;
 	}
 
 	public void setId(String id) {
-		this.id = id;
+		this._id = id;
 	}
 
 	public String getEmail() {
@@ -127,11 +142,11 @@ public class Record {
 		this.address = address;
 	}
 
-	public Date getEntryDate() {
+	public OffsetDateTime getEntryDate() {
 		return entryDate;
 	}
 
-	public void setEntryDate(Date entryDate) {
+	public void setEntryDate(OffsetDateTime entryDate) {
 		this.entryDate = entryDate;
 	}
 }

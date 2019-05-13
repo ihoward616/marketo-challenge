@@ -2,7 +2,7 @@ package main;
 
 public class Records {
 	public RecordDAO[] leads;
-	public Records(){
-		
+	public Records(RecordDAO[] aLeads){
+		leads = aLeads;
 	}
 }

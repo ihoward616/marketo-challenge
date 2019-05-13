@@ -1,66 +1,89 @@
 package main;
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.text.ParseException;
-import java.util.ArrayList;
 import java.util.HashMap;
+
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 public class Application {
+	private static Gson gson = new GsonBuilder().setPrettyPrinting().create();
 	
 	public static void main (String[] args) {
-		//Load JSON and parse into record objects.
-		//go through record objects
-		// check objects against existing emails and ids.
-		// if email matches another id we resolve data to the latest date.
-		// if dates match simply replace existing data with new.
-		
-		ArrayList<Record> records = new ArrayList<Record>();
-		HashMap<String, Record> recordsById = new HashMap<String, Record>();
-		HashMap<String, String> recordEmailIds = new HashMap<String, String>();
-		String json = null;
-		
-		//Load passed in filepath and read to string json.
 		if (args.length > 0) {
-			try {
-				BufferedReader reader = new BufferedReader(new FileReader(args[0]));
-				try {
-				    StringBuilder builder = new StringBuilder();
-				    String line = reader.readLine();
+			String fileName = args[0];
+			Application application = new Application();
+			application.execute(fileName);
+		}
+	}
 	
-				    while (line != null) {
-				    	builder.append(line);
-				    	builder.append(System.lineSeparator());
-				        line = reader.readLine();
-				    }
-				    json = builder.toString();
-				} finally {
-					reader.close();
-				}
-			} catch (Exception e){
-				System.out.print(e);
-			}
-		}
-
+	private RecordDAO[] extractRecords(String aJson) {
 		//Use Gson to parse records.
-		Gson gson = new Gson();
 		RecordDAO[] recordDAOs = null;
-		if (json != null) {
-			recordDAOs = gson.fromJson(json, Records.class).leads;
+		if (aJson != null) {
+			recordDAOs = gson.fromJson(aJson, RecordsDAO.class).leads;
 		}
+		return recordDAOs;
+	}
+	
+	private void execute(String aFileName) {
+		String json = readFile(aFileName);
+		RecordDAO[] records = extractRecords(json);
 		
 		// Go across all record data objects and resolve conflicts.
+		RecordDAO[] paredRecords = resolveDuplicates(records);
+		RecordsDAO output = new RecordsDAO(paredRecords);
+		saveOutputToJson(output);
+	}
+
+	// Load passed in filepath and read to string json.
+	private String readFile(String aFileName){
+		String json = null;
 		try {
-			for (RecordDAO dao : recordDAOs) {
+			BufferedReader reader = new BufferedReader(new FileReader(aFileName));
+			try {
+			    StringBuilder builder = new StringBuilder();
+			    String line = reader.readLine();
+
+			    while (line != null) {
+			    	builder.append(line);
+			    	builder.append(System.lineSeparator());
+			        line = reader.readLine();
+			    }
+			    json = builder.toString();
+			} finally {
+				reader.close();
+			}
+		} catch (IOException ioe){
+			ioe.printStackTrace();
+			System.exit(1);
+		}
+		return json;
+	}
+
+	/*
+	 Iterate through record objects checking objects against existing emails and ids.
+	 If email matches another id we resolve data to the latest date.
+	 If dates match simply replace existing data with new.
+	 */
+	public RecordDAO[] resolveDuplicates (RecordDAO[] aRecordDAOs) {
+		HashMap<String, Record> recordsById = new HashMap<String, Record>();
+		// Email is key, id is value.
+		HashMap<String, String> recordEmailIds = new HashMap<String, String>();
+		
+		try {
+			for (RecordDAO dao : aRecordDAOs) {
 				Record record = new Record(dao);
 				String recordId = record.getId();
 				String recordEmail = record.getEmail();
 				boolean isIdCollision = recordsById.containsKey(recordId);
-				boolean hasCollision = isIdCollision ||
-										recordEmailIds.containsKey(recordEmail);
+				boolean hasCollision = isIdCollision ||	recordEmailIds.containsKey(recordEmail);
 				if (hasCollision){
 					// Gather pertinent information about the existing record based on collision type.
 					Record existingRecord;
@@ -95,34 +118,53 @@ public class Application {
 								recordEmailIds.put(recordEmail, recordId);
 							}
 						} else {
-							// If the collision is an email collision and we are overwriting an existing record
-							// we need to update the id table accordingly by replacing the existing record with
-							// the new one.
+							/*
+							 If the collision is an email collision and we are overwriting an existing record
+							 we need to update the id table accordingly by replacing the existing record with
+							 the new one and update the id in the email table.
+							 */
 							if (recordsById.containsKey(existingRecordId)) {
-								System.out.println("Removing record id " + existingRecordId);
 								recordsById.remove(existingRecordId);
-								if () {
-									
-								}
+								recordEmailIds.put(recordEmail, recordId);
 							}
 							recordsById.put(recordId, record);
-							
 						}
 					}
 				} else {
-					// If there is no collision we store the record in our hash table
-					// and associate the email with the record id in the email ids table.
+					/*
+					If there is no collision we store the record in our hash table
+					and associate the email with the record id in the email ids table.
+					*/
 					recordsById.put(recordId, record);
 					recordEmailIds.put(recordEmail, recordId);
 				}
-			}	
+			}
 			
+			// Initialize recordDAOs for serialization.
+			RecordDAO[] result = new RecordDAO[recordsById.size()];
+			int i = 0;
+			for (Record IcRecord : recordsById.values()) {
+				result[i] = IcRecord.toRecordDAO();
+				i++;
+			}
+			return result;
 		} catch (ParseException parseException) {
-			System.out.print(parseException.toString());
+			parseException.printStackTrace();
+			System.exit(1);
+		}
+		// This line should never be reached.
+		return new RecordDAO[0];
+	}
+	
+	private void saveOutputToJson(RecordsDAO aOutput) {
+		try {
+			String ouputPath = System.getProperty("user.dir");
+		    Files.write(Paths.get(ouputPath + "/output.json"), gson.toJson(aOutput).getBytes(),
+		    		StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+		} catch (IOException ioe) {
+			ioe.printStackTrace();
 			System.exit(1);
 		}
 	}
-	
-	
 	
 }
