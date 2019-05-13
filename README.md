@@ -3,8 +3,8 @@ Simple application for parsing json and resolving duplicate entries.
 
 ## Dependencies
 
-Java 8
-GSON 2.8.5
+Java 8,
+GSON 2.8.5,
 JUNIT >= 5
 
 ## Use
