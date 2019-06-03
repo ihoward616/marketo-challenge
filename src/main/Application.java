@@ -51,21 +51,16 @@ public class Application {
 	// Load passed in filepath and read to string json.
 	private String readFile(String aFileName){
 		String json = null;
-		try {
-			BufferedReader reader = new BufferedReader(new FileReader(aFileName));
-			try {
-			    StringBuilder builder = new StringBuilder();
-			    String line = reader.readLine();
+		try (BufferedReader reader = new BufferedReader(new FileReader(aFileName))) {
+			StringBuilder builder = new StringBuilder();
+		    String line = reader.readLine();
 
-			    while (line != null) {
-			    	builder.append(line);
-			    	builder.append(System.lineSeparator());
-			        line = reader.readLine();
-			    }
-			    json = builder.toString();
-			} finally {
-				reader.close();
-			}
+		    while (line != null) {
+		    	builder.append(line);
+		    	builder.append(System.lineSeparator());
+		        line = reader.readLine();
+		    }
+		    json = builder.toString();
 		} catch (IOException ioe){
 			ioe.printStackTrace();
 			System.exit(1);
@@ -112,6 +107,8 @@ public class Application {
 						record.overwriteWithRecord(existingRecord);
 					} else {
 						// If both dates are the same, or record is newer, existingRecord should be overwritten.
+						// This logic will be the same in the case of the comparison returning -1 or 0, so it has
+						// been collapsed into one else block.
 						existingRecord.overwriteWithRecord(record);
 						
 						// Update tables to reflect change.
